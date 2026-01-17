@@ -125,4 +125,3 @@ backend/data/*
 .gitignore
 recipes.db
 backend/data/recipes.db
-deploy.sh

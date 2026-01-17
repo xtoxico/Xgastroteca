@@ -1,5 +1,5 @@
 name: mobile
-description: "Xgastroteca Recipe App"
+description: "Xgastroteca Recipe App. Created by Antonio Tirado Peña (yosoy@antoniotirado.com)"
 publish_to: "none"
 version: 1.0.0+1
 
@@ -34,6 +34,7 @@ dependencies:
   url_launcher: ^6.3.2
 
 dev_dependencies:
+  flutter_launcher_icons: "^0.13.1"
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
@@ -46,3 +47,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/icon/icon.png"

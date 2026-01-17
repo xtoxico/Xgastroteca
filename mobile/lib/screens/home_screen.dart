@@ -101,7 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _launchApkDownload() async {
-    final Uri url = Uri.parse('${AppConfig.apiBaseUrl}/app-release.apk');
+    final Uri url = Uri.parse('https://xgastroteca.antoniotirado.com/app-release.apk');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo abrir el enlace de descarga')),
