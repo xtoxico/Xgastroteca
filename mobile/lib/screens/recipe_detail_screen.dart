@@ -1,0 +1,180 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/providers/recipes_provider.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
+import 'package:transparent_image/transparent_image.dart';
+
+class RecipeDetailScreen extends ConsumerStatefulWidget {
+  final String recipeId;
+
+  const RecipeDetailScreen({super.key, required this.recipeId});
+
+  @override
+  ConsumerState<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
+}
+
+class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen> {
+  VideoPlayerController? _videoPlayerController;
+  ChewieController? _chewieController;
+  bool _isVideoInitialized = false;
+
+  @override
+  void dispose() {
+    _videoPlayerController?.dispose();
+    _chewieController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeVideo(String videoUrl, String? thumbnailUrl) async {
+    if (_isVideoInitialized) return;
+
+    try {
+      _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      await _videoPlayerController!.initialize();
+
+      _chewieController = ChewieController(
+        videoPlayerController: _videoPlayerController!,
+        autoPlay: false,
+        looping: true,
+        aspectRatio: _videoPlayerController!.value.aspectRatio,
+        placeholder: thumbnailUrl != null
+            ? Center(
+                child: FadeInImage.memoryNetwork(
+                  placeholder: kTransparentImage,
+                  image: thumbnailUrl,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              )
+            : null,
+        errorBuilder: (context, errorMessage) {
+          return Center(
+            child: Text(
+              "Error reproducción: $errorMessage",
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isVideoInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error initializing video: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recipeAsync = ref.watch(recipeDetailProvider(widget.recipeId));
+
+    return Scaffold(
+      body: recipeAsync.when(
+        data: (recipe) {
+          // Initialize video on first load
+          if (!_isVideoInitialized) {
+             final fullUrl = recipe.fullVideoUrl;
+             _initializeVideo(fullUrl, recipe.fullThumbnailUrl);
+          }
+
+          return CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 300,
+                pinned: true,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _isVideoInitialized && _chewieController != null
+                      ? Chewie(controller: _chewieController!)
+                      : Container(
+                          color: Colors.black,
+                          child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                        ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        recipe.title,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.timer_outlined, size: 20, color: Colors.orange),
+                          const SizedBox(width: 4),
+                          Text(
+                            recipe.cookingTime.isEmpty ? "Tiempo N/A" : recipe.cookingTime,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const Spacer(),
+                           Text(
+                            "Fuente: ${recipe.source}",
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(recipe.description, style: Theme.of(context).textTheme.bodyLarge),
+                      const Divider(height: 32),
+                      
+                      Text("Ingredientes", style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 8),
+                      ...recipe.ingredients.map((ing) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.circle, size: 8, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            Text("${ing.quantity} ${ing.item}", style: const TextStyle(fontSize: 16)),
+                          ],
+                        ),
+                      )).toList(),
+                      
+                      const Divider(height: 32),
+                      Text("Pasos", style: Theme.of(context).textTheme.titleLarge),
+                       const SizedBox(height: 8),
+                      ...recipe.steps.asMap().entries.map((entry) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.orange.shade100,
+                              child: Text(
+                                "${entry.key + 1}",
+                                style: TextStyle(fontSize: 12, color: Colors.orange.shade800, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(entry.value.text, style: const TextStyle(fontSize: 16, height: 1.4))),
+                          ],
+                        ),
+                      )).toList(),
+
+                      const SizedBox(height: 50),
+                    ],
+                  ),
+                ),
+              )
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Scaffold(
+          appBar: AppBar(),
+          body: Center(child: Text('Error: $err')),
+        ),
+      ),
+    );
+  }
+}

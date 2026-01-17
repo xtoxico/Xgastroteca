@@ -1,0 +1,47 @@
+name: mobile
+description: "Xgastroteca Recipe App"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Network
+  dio: ^5.8.0+1
+
+  # Localization
+  intl: ^0.19.0
+
+  # Navigation
+  go_router: ^14.8.0
+
+  # Media
+  video_player: ^2.9.2
+  chewie: ^1.8.5
+  transparent_image: ^2.0.1
+
+  # System Integrations
+  receive_sharing_intent: ^1.6.8 # Version check needed, using a generally safe recent one
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+  # Code Generation
+  build_runner: ^2.4.14
+  riverpod_generator: ^2.6.4
+  custom_lint: ^0.7.0
+  riverpod_lint: ^2.6.3
+
+flutter:
+  uses-material-design: true
