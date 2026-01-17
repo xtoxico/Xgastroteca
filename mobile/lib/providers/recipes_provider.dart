@@ -12,7 +12,7 @@ class RecipesRepository {
 
   RecipesRepository(this._dio);
 
-  Future<List<Recipe>> getRecipes({int page = 1, int limit = 10, String search = ''}) async {
+  Future<List<Recipe>> getRecipes({int page = 1, int limit = 12, String search = ''}) async {
     try {
       final response = await _dio.get('/api/recipes', queryParameters: {
         'page': page,

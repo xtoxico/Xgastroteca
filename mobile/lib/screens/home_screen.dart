@@ -1,10 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/core/constants/app_config.dart';
 import 'package:mobile/models/recipe.dart';
 import 'package:mobile/providers/recipes_provider.dart';
 import 'package:mobile/widgets/add_recipe_dialog.dart';
+import 'package:mobile/widgets/recipe_card.dart';
 import 'package:transparent_image/transparent_image.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'dart:async';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -16,9 +22,69 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  StreamSubscription? _intentSub;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Sharing Intent likely NOT supported on Web via this plugin.
+    if (kIsWeb) return;
+
+    // Listen to media share (for text/url)
+    // ReceiveSharingIntent 1.6.8 uses getMediaStream for text sharing too (path contains text)
+    
+    // For sharing link/text while app is open
+    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
+        if (value.isNotEmpty) {
+             _handleSharedFiles(value);
+        }
+    }, onError: (err) {
+      debugPrint("getIntentDataStream error: $err");
+    });
+
+    // Get the media we were opened with
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+         if (value.isNotEmpty) {
+             _handleSharedFiles(value);
+             ReceiveSharingIntent.instance.reset();
+         }
+    });
+  }
+
+  void _handleSharedText(String text) {
+      if (text.startsWith('http')) {
+          _openAddRecipeDialog(text);
+      }
+  }
+
+  void _handleSharedFiles(List<SharedMediaFile> files) {
+      // Check if we have a valid URL in the "path" or "thumbnail" or wherever text might be stashed
+      // OR, maybe we should have used getTextStream().
+      // Let's assume for a moment that for text/plain, it might be safer to try getTextStream if we were sure.
+      // But let's implement validation.
+      
+      for (var file in files) {
+          // Sometimes text is in path
+          final text = file.path;
+          if (text.startsWith('http')) {
+              _openAddRecipeDialog(text);
+              return; // Open only one
+          }
+      }
+  }
+
+  void _openAddRecipeDialog(String url) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AddRecipeDialog(initialUrl: url),
+      );
+  }
 
   @override
   void dispose() {
+    _intentSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -32,6 +98,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {
       _searchQuery = _searchController.text;
     });
+  }
+
+  Future<void> _launchApkDownload() async {
+    final Uri url = Uri.parse('${AppConfig.apiBaseUrl}/app-release.apk');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el enlace de descarga')),
+      );
+    }
   }
 
   @override
@@ -50,6 +125,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       appBar: AppBar(
         title: const Text('Xgastroteca'),
+        actions: [
+          if (kIsWeb)
+            IconButton(
+              tooltip: "Descargar App Android",
+              icon: const Icon(Icons.android, color: Colors.green),
+              onPressed: _launchApkDownload,
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -84,98 +167,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onRefresh: () async {
                ref.invalidate(recipesListProvider);
             },
-            child: ListView.builder(
-              itemCount: recipes.length,
-              itemBuilder: (context, index) {
-                final recipe = recipes[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      context.push('/recipe/${recipe.id}');
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Video Thumbnail (Placeholder or generated)
-                        // If we had image thumbnails, we'd use them. 
-                        // For now show a generic placeholder or color
-                        // Video Thumbnail (or placeholder)
-                        recipe.fullThumbnailUrl != null
-                            ? Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  FadeInImage.memoryNetwork(
-                                    placeholder: kTransparentImage,
-                                    image: recipe.fullThumbnailUrl!,
-                                    height: 180,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    imageErrorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 180,
-                                        width: double.infinity,
-                                        color: Colors.grey.shade300,
-                                        child: const Center(child: Icon(Icons.broken_image, size: 50, color: Colors.white)),
-                                      );
-                                    },
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.3),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.play_arrow_rounded, size: 50, color: Colors.white),
-                                  ),
-                                ],
-                              )
-                            : Container(
-                                height: 180,
-                                width: double.infinity,
-                                color: Colors.grey.shade300,
-                                child: const Center(
-                                  child: Icon(Icons.play_circle_fill, size: 64, color: Colors.white),
-                                ),
-                              ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                recipe.title,
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                recipe.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey.shade600
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                children: recipe.tags.take(3).map((tag) => Chip(
-                                  label: Text(tag.name),
-                                  backgroundColor: Colors.orange.shade50,
-                                  labelStyle: TextStyle(color: Colors.orange.shade800, fontSize: 12),
-                                )).toList(),
-                              )
-                            ],
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 600) {
+                  // Mobile List View (re-using RecipeCard but in list format)
+                  // Using GridView with crossAxisCount 1 to keep similar structure or ListView
+                  // Let's stick to GridView responsive logic entirely or ListView with fixed height
+                  return ListView.builder(
+                    itemCount: recipes.length,
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        height: 320, // Fixed height for card in list
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: RecipeCard(recipe: recipes[index]),
                         ),
-                      ],
+                      );
+                    },
+                  );
+                } else {
+                  // Tablet/Desktop Grid View
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 350,
+                      childAspectRatio: 0.8, // Adjust based on card content
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
                     ),
-                  ),
-                );
+                    itemCount: recipes.length,
+                    itemBuilder: (context, index) {
+                      return RecipeCard(recipe: recipes[index]);
+                    },
+                  );
+                }
               },
             ),
           );

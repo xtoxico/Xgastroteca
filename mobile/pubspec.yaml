@@ -31,6 +31,7 @@ dependencies:
 
   # System Integrations
   receive_sharing_intent: ^1.6.8 # Version check needed, using a generally safe recent one
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

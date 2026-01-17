@@ -121,3 +121,8 @@ app.*.symbols
 .env
 *.mp4
 /bakend/data/*
+backend/data/*
+.gitignore
+recipes.db
+backend/data/recipes.db
+deploy.sh

@@ -3,15 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/recipes_provider.dart';
 
 class AddRecipeDialog extends ConsumerStatefulWidget {
-  const AddRecipeDialog({super.key});
+  final String? initialUrl;
+  const AddRecipeDialog({super.key, this.initialUrl});
 
   @override
   ConsumerState<AddRecipeDialog> createState() => _AddRecipeDialogState();
 }
 
 class _AddRecipeDialogState extends ConsumerState<AddRecipeDialog> {
-  final TextEditingController _urlController = TextEditingController();
+  late TextEditingController _urlController;
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _urlController = TextEditingController(text: widget.initialUrl ?? '');
+  }
 
   @override
   void dispose() {

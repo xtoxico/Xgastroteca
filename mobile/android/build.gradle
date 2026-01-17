@@ -1,0 +1,41 @@
+// 1. Force JVM Compatibility (Must be top-level or early)
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = '../build'
+
+// Apply fix to subprojects BEFORE they are evaluated
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+    }
+    
+    // Force Kotlin JVM target, attempting dynamic access to avoid ClassDefNotFound if class not loaded
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+             jvmTarget = "17"
+        }
+    }
+}
+
+// 2. Evaluation Dependencies (Must be after config hooks)
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

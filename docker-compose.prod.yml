@@ -1,0 +1,39 @@
+version: '3.8'
+
+networks:
+  xgastro_net:
+
+services:
+  backend:
+    image: xtoxico81/xgastroteca-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    networks:
+      - xgastro_net
+    volumes:
+      - ./data:/app/data
+    environment:
+      - GEMINI_API_KEY
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.xgastro-api.rule=Host(`api-xgastroteca.antoniotirado.com`)"
+      - "traefik.http.routers.xgastro-api.entrypoints=websecure"
+      - "traefik.http.routers.xgastro-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.xgastro-api.loadbalancer.server.port=8080"
+
+  frontend:
+    image: xtoxico81/xgastroteca-web:latest
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile.web
+    restart: always
+    networks:
+      - xgastro_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.xgastro-web.rule=Host(`xgastroteca.antoniotirado.com`)"
+      - "traefik.http.routers.xgastro-web.entrypoints=websecure"
+      - "traefik.http.routers.xgastro-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.xgastro-web.loadbalancer.server.port=80"

@@ -1,0 +1,41 @@
+# Build Stage
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev
+
+# Copy modules and download
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build binary
+RUN CGO_ENABLED=1 GOOS=linux go build -o main .
+
+# Run Stage
+FROM python:3-alpine
+
+WORKDIR /app
+
+# Install ffmpeg (required for audio/video processing)
+RUN apk add --no-cache ffmpeg
+
+# Install yt-dlp using pip
+# --break-system-packages is needed in newer Python versions on Alpine/Debian
+RUN pip install yt-dlp --break-system-packages
+
+# Create data directory
+RUN mkdir -p ./data/videos
+
+# Copy binary from builder
+COPY --from=builder /app/main .
+
+# Expose port
+EXPOSE 8080
+
+# Run
+CMD ["./main"]
