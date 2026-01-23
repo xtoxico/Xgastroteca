@@ -25,6 +25,7 @@ func InitDB() {
 		&models.Ingredient{},
 		&models.Step{},
 		&models.Tag{},
+		&models.ProcessingJob{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)

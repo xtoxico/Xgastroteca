@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 networks:
   xgastro_net:
@@ -16,6 +16,7 @@ services:
       - ./data:/app/data
     environment:
       - GEMINI_API_KEY
+      - LATEST_APP_VERSION=1.1.0
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.xgastro-api.rule=Host(`api-xgastroteca.antoniotirado.com`)"

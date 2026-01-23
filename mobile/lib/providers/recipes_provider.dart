@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/models/recipe.dart';
+import 'dart:async';
 
 part 'recipes_provider.g.dart';
 
@@ -68,9 +69,48 @@ RecipesRepository recipesRepository(RecipesRepositoryRef ref) {
 // --- Providers ---
 
 @riverpod
-Future<List<Recipe>> recipesList(RecipesListRef ref, {int page = 1, String search = ''}) async {
-  final repository = ref.watch(recipesRepositoryProvider);
-  return repository.getRecipes(page: page, search: search);
+class RecipesList extends _$RecipesList {
+  int _page = 1;
+  static const int _limit = 12;
+  bool _hasMore = true;
+  String _search = '';
+
+  @override
+  FutureOr<List<Recipe>> build({String search = ''}) async {
+    _search = search;
+    _page = 1;
+    _hasMore = true;
+    final repository = ref.watch(recipesRepositoryProvider);
+    return repository.getRecipes(page: _page, limit: _limit, search: search);
+  }
+
+  Future<void> fetchNextPage() async {
+    if (!_hasMore || state.isLoading || state.isRefreshing) return;
+
+    final repository = ref.read(recipesRepositoryProvider);
+    final currentList = state.value ?? [];
+
+    state = const AsyncLoading<List<Recipe>>().copyWithPrevious(state);
+
+    try {
+      final nextPage = _page + 1;
+      final newRecipes = await repository.getRecipes(
+        page: nextPage,
+        limit: _limit,
+        search: _search,
+      );
+
+      if (newRecipes.length < _limit) {
+        _hasMore = false;
+      } else {
+        _page = nextPage;
+      }
+
+      state = AsyncData([...currentList, ...newRecipes]);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
 }
 
 @riverpod

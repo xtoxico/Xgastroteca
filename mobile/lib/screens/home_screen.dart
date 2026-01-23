@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import 'package:mobile/core/constants/app_config.dart';
+import 'package:mobile/screens/queue_screen.dart';
 import 'package:mobile/models/recipe.dart';
 import 'package:mobile/providers/recipes_provider.dart';
 import 'package:mobile/widgets/add_recipe_dialog.dart';
@@ -21,35 +23,89 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   StreamSubscription? _intentSub;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
 
     // Sharing Intent likely NOT supported on Web via this plugin.
-    if (kIsWeb) return;
+    if (!kIsWeb) {
+      // Listen to media share (for text/url)
+      _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
+          if (value.isNotEmpty) {
+               _handleSharedFiles(value);
+          }
+      }, onError: (err) {
+        debugPrint("getIntentDataStream error: $err");
+      });
 
-    // Listen to media share (for text/url)
-    // ReceiveSharingIntent 1.6.8 uses getMediaStream for text sharing too (path contains text)
+      // Get the media we were opened with
+      ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+           if (value.isNotEmpty) {
+               _handleSharedFiles(value);
+               ReceiveSharingIntent.instance.reset();
+           }
+      });
+    }
+
+    // Check for updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkVersion();
+    });
+  }
+
+  @override
+  void dispose() {
+    _intentSub?.cancel();
+    _searchController.dispose();
+    _scrollController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(recipesListProvider(search: _searchQuery).notifier).fetchNextPage();
+    }
+  }
+
+  Future<void> _checkVersion() async {
+    if (kIsWeb) return; 
     
-    // For sharing link/text while app is open
-    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
-        if (value.isNotEmpty) {
-             _handleSharedFiles(value);
-        }
-    }, onError: (err) {
-      debugPrint("getIntentDataStream error: $err");
-    });
+    try {
+      final dio = Dio();
+      final res = await dio.get('${AppConfig.apiBaseUrl}/api/version');
+      final latestVersion = res.data['latest_app_version'];
+      final downloadUrl = res.data['download_url'];
 
-    // Get the media we were opened with
-    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
-         if (value.isNotEmpty) {
-             _handleSharedFiles(value);
-             ReceiveSharingIntent.instance.reset();
-         }
-    });
+      if (latestVersion != AppConfig.appVersion) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("¡Nueva Versión Disponible!"),
+            content: Text("Hay una nueva versión ($latestVersion) disponible. Tienes la ${AppConfig.appVersion}."),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Ignorar")),
+              ElevatedButton(
+                onPressed: () {
+                  launchUrl(Uri.parse(downloadUrl), mode: LaunchMode.externalApplication);
+                  Navigator.pop(ctx);
+                },
+                child: const Text("Descargar"),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Version check failed: $e");
+    }
   }
 
   void _handleSharedText(String text) {
@@ -59,13 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _handleSharedFiles(List<SharedMediaFile> files) {
-      // Check if we have a valid URL in the "path" or "thumbnail" or wherever text might be stashed
-      // OR, maybe we should have used getTextStream().
-      // Let's assume for a moment that for text/plain, it might be safer to try getTextStream if we were sure.
-      // But let's implement validation.
-      
       for (var file in files) {
-          // Sometimes text is in path
           final text = file.path;
           if (text.startsWith('http')) {
               _openAddRecipeDialog(text);
@@ -82,30 +132,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
   }
 
-  @override
-  void dispose() {
-    _intentSub?.cancel();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchValuesChanged(String value) {
-     // rudimentary debounce can be added here
-     // for now update state on submit or immediate
-  }
-
-  void _performSearch() {
-    setState(() {
-      _searchQuery = _searchController.text;
+  void _performSearch(String value) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _searchQuery = value;
+      });
     });
   }
 
   Future<void> _launchApkDownload() async {
     final Uri url = Uri.parse('https://xgastroteca.antoniotirado.com/app-release.apk');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo abrir el enlace de descarga')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir el enlace de descarga')),
+        );
+      }
     }
   }
 
@@ -132,6 +175,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               icon: const Icon(Icons.android, color: Colors.green),
               onPressed: _launchApkDownload,
             ),
+          IconButton(
+            tooltip: "Cola de Procesamiento",
+            icon: const Icon(Icons.list_alt),
+            onPressed: () {
+              Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => const QueueScreen()),
+              );
+            },
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
@@ -149,11 +202,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 filled: true,
                 fillColor: Colors.white,
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.arrow_forward),
-                  onPressed: _performSearch,
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    _performSearch('');
+                  },
                 ),
               ),
-              onSubmitted: (_) => _performSearch(),
+              onChanged: _performSearch,
             ),
           ),
         ),
@@ -161,23 +217,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: recipesAsync.when(
         data: (recipes) {
           if (recipes.isEmpty) {
-            return const Center(child: Text("No hay recetas. ¡Añade una!"));
+             return const Center(child: Text("No hay recetas que coincidan."));
           }
+
+          final isLoadingMore = recipesAsync.isLoading && !recipesAsync.isRefreshing;
+
           return RefreshIndicator(
             onRefresh: () async {
-               ref.invalidate(recipesListProvider);
+               return ref.refresh(recipesListProvider(search: _searchQuery).future);
             },
             child: LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth < 600) {
-                  // Mobile List View (re-using RecipeCard but in list format)
-                  // Using GridView with crossAxisCount 1 to keep similar structure or ListView
-                  // Let's stick to GridView responsive logic entirely or ListView with fixed height
                   return ListView.builder(
-                    itemCount: recipes.length,
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: recipes.length + (isLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == recipes.length) {
+                         return const Padding(
+                           padding: EdgeInsets.all(16.0),
+                           child: Center(child: CircularProgressIndicator()),
+                         );
+                      }
                       return SizedBox(
-                        height: 320, // Fixed height for card in list
+                        height: 320, 
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           child: RecipeCard(recipe: recipes[index]),
@@ -186,19 +250,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   );
                 } else {
-                  // Tablet/Desktop Grid View
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 350,
-                      childAspectRatio: 0.8, // Adjust based on card content
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: recipes.length,
-                    itemBuilder: (context, index) {
-                      return RecipeCard(recipe: recipes[index]);
-                    },
+                  return CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(16),
+                        sliver: SliverGrid(
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 350,
+                            childAspectRatio: 0.8,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                               return RecipeCard(recipe: recipes[index]);
+                            },
+                            childCount: recipes.length,
+                          ),
+                        ),
+                      ),
+                      if (isLoadingMore)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ),
+                    ],
                   );
                 }
               },

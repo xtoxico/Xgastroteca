@@ -24,7 +24,7 @@ final recipesRepositoryProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef RecipesRepositoryRef = AutoDisposeProviderRef<RecipesRepository>;
-String _$recipesListHash() => r'906c465fc09e7385638e669ffa95d7e418436174';
+String _$recipeDetailHash() => r'939f352ab346daca3661676f731da60a2fc7528c';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -46,137 +46,6 @@ class _SystemHash {
     return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
   }
 }
-
-/// See also [recipesList].
-@ProviderFor(recipesList)
-const recipesListProvider = RecipesListFamily();
-
-/// See also [recipesList].
-class RecipesListFamily extends Family<AsyncValue<List<Recipe>>> {
-  /// See also [recipesList].
-  const RecipesListFamily();
-
-  /// See also [recipesList].
-  RecipesListProvider call({int page = 1, String search = ''}) {
-    return RecipesListProvider(page: page, search: search);
-  }
-
-  @override
-  RecipesListProvider getProviderOverride(
-    covariant RecipesListProvider provider,
-  ) {
-    return call(page: provider.page, search: provider.search);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'recipesListProvider';
-}
-
-/// See also [recipesList].
-class RecipesListProvider extends AutoDisposeFutureProvider<List<Recipe>> {
-  /// See also [recipesList].
-  RecipesListProvider({int page = 1, String search = ''})
-    : this._internal(
-        (ref) => recipesList(ref as RecipesListRef, page: page, search: search),
-        from: recipesListProvider,
-        name: r'recipesListProvider',
-        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-            ? null
-            : _$recipesListHash,
-        dependencies: RecipesListFamily._dependencies,
-        allTransitiveDependencies: RecipesListFamily._allTransitiveDependencies,
-        page: page,
-        search: search,
-      );
-
-  RecipesListProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.page,
-    required this.search,
-  }) : super.internal();
-
-  final int page;
-  final String search;
-
-  @override
-  Override overrideWith(
-    FutureOr<List<Recipe>> Function(RecipesListRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: RecipesListProvider._internal(
-        (ref) => create(ref as RecipesListRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        page: page,
-        search: search,
-      ),
-    );
-  }
-
-  @override
-  AutoDisposeFutureProviderElement<List<Recipe>> createElement() {
-    return _RecipesListProviderElement(this);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is RecipesListProvider &&
-        other.page == page &&
-        other.search == search;
-  }
-
-  @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, page.hashCode);
-    hash = _SystemHash.combine(hash, search.hashCode);
-
-    return _SystemHash.finish(hash);
-  }
-}
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin RecipesListRef on AutoDisposeFutureProviderRef<List<Recipe>> {
-  /// The parameter `page` of this provider.
-  int get page;
-
-  /// The parameter `search` of this provider.
-  String get search;
-}
-
-class _RecipesListProviderElement
-    extends AutoDisposeFutureProviderElement<List<Recipe>>
-    with RecipesListRef {
-  _RecipesListProviderElement(super.provider);
-
-  @override
-  int get page => (origin as RecipesListProvider).page;
-  @override
-  String get search => (origin as RecipesListProvider).search;
-}
-
-String _$recipeDetailHash() => r'939f352ab346daca3661676f731da60a2fc7528c';
 
 /// See also [recipeDetail].
 @ProviderFor(recipeDetail)
@@ -294,6 +163,137 @@ class _RecipeDetailProviderElement
 
   @override
   String get id => (origin as RecipeDetailProvider).id;
+}
+
+String _$recipesListHash() => r'81642c1a23265a3c11fce068f57beecca8f0947a';
+
+abstract class _$RecipesList
+    extends BuildlessAutoDisposeAsyncNotifier<List<Recipe>> {
+  late final String search;
+
+  FutureOr<List<Recipe>> build({String search = ''});
+}
+
+/// See also [RecipesList].
+@ProviderFor(RecipesList)
+const recipesListProvider = RecipesListFamily();
+
+/// See also [RecipesList].
+class RecipesListFamily extends Family<AsyncValue<List<Recipe>>> {
+  /// See also [RecipesList].
+  const RecipesListFamily();
+
+  /// See also [RecipesList].
+  RecipesListProvider call({String search = ''}) {
+    return RecipesListProvider(search: search);
+  }
+
+  @override
+  RecipesListProvider getProviderOverride(
+    covariant RecipesListProvider provider,
+  ) {
+    return call(search: provider.search);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'recipesListProvider';
+}
+
+/// See also [RecipesList].
+class RecipesListProvider
+    extends AutoDisposeAsyncNotifierProviderImpl<RecipesList, List<Recipe>> {
+  /// See also [RecipesList].
+  RecipesListProvider({String search = ''})
+    : this._internal(
+        () => RecipesList()..search = search,
+        from: recipesListProvider,
+        name: r'recipesListProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$recipesListHash,
+        dependencies: RecipesListFamily._dependencies,
+        allTransitiveDependencies: RecipesListFamily._allTransitiveDependencies,
+        search: search,
+      );
+
+  RecipesListProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.search,
+  }) : super.internal();
+
+  final String search;
+
+  @override
+  FutureOr<List<Recipe>> runNotifierBuild(covariant RecipesList notifier) {
+    return notifier.build(search: search);
+  }
+
+  @override
+  Override overrideWith(RecipesList Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: RecipesListProvider._internal(
+        () => create()..search = search,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        search: search,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeAsyncNotifierProviderElement<RecipesList, List<Recipe>>
+  createElement() {
+    return _RecipesListProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RecipesListProvider && other.search == search;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, search.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin RecipesListRef on AutoDisposeAsyncNotifierProviderRef<List<Recipe>> {
+  /// The parameter `search` of this provider.
+  String get search;
+}
+
+class _RecipesListProviderElement
+    extends AutoDisposeAsyncNotifierProviderElement<RecipesList, List<Recipe>>
+    with RecipesListRef {
+  _RecipesListProviderElement(super.provider);
+
+  @override
+  String get search => (origin as RecipesListProvider).search;
 }
 
 String _$recipeProcessorHash() => r'c60aba4ed8e415cfa13616084a484f6497e52213';
